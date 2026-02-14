@@ -1,7 +1,11 @@
 import MapView from "./MapView";
 
 function App() {
-  return <MapView />;
+  return (
+    <div style={{ height: "100vh" }}>
+      <MapView />
+    </div>
+  );
 }
 
 export default App;
