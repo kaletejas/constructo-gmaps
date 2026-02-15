@@ -20,9 +20,11 @@ export default function MapView() {
   const mapRef = useRef(null);
   const clusterRef = useRef(null);
   const markersRef = useRef([]);
+  const infoWindowRef = useRef(null);
+
   const [locations, setLocations] = useState([]);
 
-  // Fetch projects using bounding box
+  // Fetch projects using bbox
   const fetchProjects = () => {
     if (!mapRef.current) return;
 
@@ -37,34 +39,62 @@ export default function MapView() {
     fetch(url)
       .then(res => res.json())
       .then(data => {
+        console.log("Projects returned:", data.length);
         setLocations(data);
       })
       .catch(err => console.error("Fetch error:", err));
   };
 
-  // Create & cluster markers whenever locations change
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Clear old markers
+    // Clear previous cluster
     if (clusterRef.current) {
       clusterRef.current.clearMarkers();
     }
 
+    // Remove old markers
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
-    // Create new markers
+    // Create single InfoWindow instance
+    if (!infoWindowRef.current) {
+      infoWindowRef.current = new window.google.maps.InfoWindow();
+    }
+
+    // Create markers
     const markers = locations.map(loc => {
-      return new window.google.maps.Marker({
+      const marker = new window.google.maps.Marker({
         position: { lat: loc.lat, lng: loc.lng },
-        title: loc.name
+        title: loc.canonical_name
       });
+
+      marker.addListener("click", () => {
+        const formattedDate = loc.start_date
+          ? new Date(loc.start_date).toLocaleDateString()
+          : "N/A";
+
+        infoWindowRef.current.setContent(`
+          <div style="min-width:220px">
+            <h3 style="margin:0 0 8px 0;">${loc.canonical_name}</h3>
+            <p><strong>ID:</strong> ${loc.id}</p>
+            <p><strong>Status:</strong> ${loc.status}</p>
+            <p><strong>Category:</strong> ${loc.category}</p>
+            <p><strong>Start:</strong> ${formattedDate}</p>
+          </div>
+        `);
+
+        infoWindowRef.current.open({
+          anchor: marker,
+          map: mapRef.current
+        });
+      });
+
+      return marker;
     });
 
     markersRef.current = markers;
 
-    // Create new clusterer
     clusterRef.current = new MarkerClusterer({
       map: mapRef.current,
       markers
@@ -81,9 +111,9 @@ export default function MapView() {
       zoom={11}
       onLoad={(map) => {
         mapRef.current = map;
-        fetchProjects(); // Initial load
+        fetchProjects();
       }}
-      onIdle={fetchProjects} // Fetch when user moves/zooms
+      onIdle={fetchProjects}
     />
   );
 }
